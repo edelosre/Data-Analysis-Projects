@@ -1,0 +1,361 @@
+---
+title: "Data Analysis - Office Sales and App Downloads"
+author: "Elias Delosreyes"
+date: "February 27, 2018"
+output:
+  pdf_document:
+    toc: yes
+    df_print: kable
+  html_document:
+    css: flatly.css
+    df_print: paged
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load necessary packages and open xlsx
+```{r, message = FALSE}
+#Load packages
+library(tidyverse) #Used for data manipulation and visualization
+library(readxl) #Used to read the excel file
+
+#Open workbook
+path <- 'Office Sales and App Downloads.xlsx'
+```
+
+#Office Sales Analysis
+##1. Which product sub-category had the highest sales? How much sales did this sub-category have?
+```{r}
+#Load sheet and examine structure
+orders <- read_excel(path, sheet = 'Orders')
+orders <- data.frame(orders)
+
+#Find Product Subcategory with most sales
+orders %>%
+  group_by(factor(`Product.Sub.Category`)) %>%
+  summarize(Total_Sales = sum(Sales)) %>%
+  arrange(desc(Total_Sales)) %>%
+  head(5)
+```
+
+The office machines sub-category had the highest sales. The total sales were
+$318,169.68
+
+##2. What percent of total profit did the West region contribute?
+```{r}
+#Find percent of total profit 
+orders %>%
+  mutate(Percentage_profit = Profit/sum(Profit)) %>%
+  group_by(Region) %>%
+  summarize(Total_Percent_Profit = sum(Percentage_profit) * 100) %>%
+  arrange(desc(Total_Percent_Profit))
+```
+The West region contributed 33.85% of total profit
+
+##3. What is the averages sales per order for California?
+
+```{r}
+#Find average of sales in California
+orders %>%
+  filter(State.or.Province == 'California') %>%
+  group_by(`State.or.Province`) %>%
+  summarize(mean(Sales))
+```
+The average sales per order in California is ~$1347.25.
+
+##4. Which product was ordered the most? How many times was it ordered?
+
+```{r}
+#Find most ordered item
+orders %>%
+  group_by(Product.Name) %>%
+  summarize(Total.quantity = sum(Quantity.ordered.new)) %>%
+  arrange(desc(Total.quantity)) %>% 
+  head(10)
+```
+The most ordered product was the Newell 323. This product was ordered 268 times.
+
+#App Downloads Analysis
+##5. How many downloads did each park have?
+
+```{r}
+#Load Downloads sheet and look at structure
+downloads <- read_excel(path, 'Downloads')
+downloads <- data.frame(downloads)
+```
+```{r}
+downloads %>%
+  group_by(Venue.ID) %>%
+  summarize(Total.Downloads = sum(Downloads)) %>%
+  arrange(desc(Total.Downloads))
+
+```
+* Cedar Point had 189,655 downloads.
+* Knott's Berry Farm had 186,690 downloads.
+* Kings Island had 111,647 downloads.
+* Canada's Wonderland had 84,675 downloads.
+* Carowinds had 58,102 downloads.
+* Kings Dominion had 36,015 downloads.
+* California's Great Adventure had 31,391 downloads.
+
+##6. How did downloads change month-over-month for Knott's Berry Farm?
+
+```{r}
+#Change month to factor variable
+downloads$Month <- factor(downloads$Month, levels = c('January', 'February',
+                                                      'March', 'April', 
+                                                      'May', 'June', 
+                                                      'July', 'August',
+                                                      'September', 'October',
+                                                      'November', 'December'))
+
+#Table of month-over-month change in absolute value
+Month.over.month <- downloads %>%
+  filter(Venue.ID == 'CF_KBF') %>%
+  group_by(Month) %>%
+  summarize(Total.Downloads = sum(Downloads)) %>%
+  arrange(Month)
+
+#Table of month-over-month change in percentage
+(Month.over.month <- Month.over.month %>%
+  mutate(Abs_change = Total.Downloads - lag(Total.Downloads), 
+         Percent_change = Abs_change/lag(Total.Downloads) * 100))
+
+#Graph of month-over-month change
+ggplot(Month.over.month, aes(x = Month, y = Total.Downloads, group = 1)) +
+  geom_line(size = 1.5, color = 'blue') + 
+  ggtitle("Downloads Per Month") +
+  ylim(0,30000) + ylab('Total Downloads') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+The total month to month downloads have very high variance with ranges from 10,000 to 25,000 downloads within a given month. There is no obvious upward or downward trend in download growth.
+
+##7. What percent of downloads does each operating system (iOS vs Android) make up of the total downloads?
+
+```{r}
+#Create new `Platform` column and update it to iOS or Android 
+#depending on the name in the App column
+downloads$Platform <- ifelse(str_detect(downloads$App, 'iOS') == 'TRUE', 'iOS', 'Android')
+
+#Print Table of Downloads by Platform
+downloads %>%
+  mutate(Percent.Downloads = Downloads/sum(Downloads)) %>%
+  group_by(Platform) %>%
+  summarize(Sum.of.Downloads = sum(Downloads), 
+            Percent.of.Downloads = sum(Percent.Downloads) * 100) %>%
+  arrange(desc(Sum.of.Downloads)) 
+```
+
+There were more downloads on the iOS platform. iOS downloads accounted for 67.27% of downloads. Android downloads accounted for 32.73% of downloads.
+
+##8. What was the highest month for downloads?
+```{r}
+#Find highest month for downloads
+downloads %>%
+  group_by(Month) %>%
+  summarize(Sum.Downloads = sum(Downloads)) %>%
+  arrange(desc(Sum.Downloads))
+```
+July was the month with the greatest number of downloads, with 124,129 during the month.
+
+#Promotion Analysis
+
+![Picture references for questions 9-12](untitled.png)
+
+##9. During the month of November, there was a huge spike in downloads. What are some possible reasons for this?
+
+
+During the month of November, downloads spiked to a little above 5,000. Based upon previous months, this 500% spike in growth was not natural, and some event probably triggered this. Some possible events could include:
+
+
+*	The app was not previously advertised to the customers of the resorts. If the resort did not advertise the mobile app until November, it could possibly explain the sudden spike and influx of users. 
+
+* There was a promotional offer for downloading the app. Promotional offers can incentivize users to download the app. 
+
+* The resort could have encouraged employees (employed at the resorts or even corporate office employees) to download the app during the month of November.
+
+* On the side of extreme skepticism, the 500% spike in app downloads does not align with a 500% or even 100% spike for App users in the venue (unless the "App Users in Venue" graph is based upon a single resort, and the "Total App Downloads" graph is downloads across all resorts). However, if these two graphs are measuring the same downloads and app users for the same location(s), then it is possible that the spike in sales can be attributed to mass downloading by a botnet(network of bots) to arbitrarily inflate the app downloads and have it trend on the app stores.
+
+##10. For app downloads, if there were 1463 downloads for the week prior to the week with 1755 downloads, what does the 20% represents?
+
+* The 20% represents the growth in downloads from the prior week. Using this formula we can verify that:
+
+$$\frac{new\hspace{0.1cm}value - old\hspace{0.1cm}value}{old \hspace{0.1cm} value}*(100) \hspace{0.3cm}= \hspace{0.3cm}\frac{1755 - 1463}{1463}*100 \hspace{0.3cm} = \hspace{0.3cm} 20 \% \hspace{0.1cm} download \hspace{0.1cm} growth$$
+
+##11. July and August were the months with the most users using the app in the resort. What are some possible reasons for this?
+
+
+Reasons for spike in app venue users in the months of July and August:
+
+
+* Summertime is the perfect time for vacation. For families with kids, summertime is the most opportune time due to long summer breaks for the kids. For those without kids, the summer is still one of the nicest times of the year in Mexico (where the resorts are located) due to the sunny weather. 
+
+* The resort may offer more promotions and/or advertise more during the summertime months of July and August. 
+
+##12. What offers did well? Why?	
+
+
+* In terms of offer redemption rate, the Samba Early Bird, Icecream 2x1, and 2x1 Pizza deals had the highest redemption rate. Along with being the most redeemed, these three offers had very high return on investments:
+
+          Samba Early Bird: ~118% return on investment
+          Icecream 2x1: ~ 428% return on investment
+          2x1 Pizza: ~252% return on investment
+
+    * All these deals are food related and thus appeal to a broad demographic.
+
+    * Other promotional offers such as wine/alcohol, perfume, and Spa treatments do not necessarily appeal to all demographic groups, and thus have lower offer redemption rates. 
+
+
+* In terms of offers with the highest return on investment:
+
+          Epazote Free App: ~4150% return on investment
+          Epazote Free Margarita: ~3166% return on investment
+          Coffee Offer: ~511% return on investment	
+
+    * These offers do not have the highest redemption rates, but they do have some of the highest cost to profit ratios. The Epazote dining area could be a certain area of interest for the resort to promote further, as well as with coffee sales. 
+  
+  
+#Additional Analysis
+##Are order priority and profit related?
+```{r}
+#Turn order priority from string variable to factor
+orders$Order.Priority <- factor(orders$Order.Priority, levels = c('Not Specified', 
+    'Low', 
+    'Medium',
+    'High',
+    'Critical'))
+
+#Table of order priority and average profits
+orders %>%
+  group_by(Order.Priority) %>%
+  summarise(Average.Profits = mean(Profit), Number.orders = n()) %>%
+  arrange(desc(Average.Profits)) 
+```
+There doesn't seem to be a clear relationship between profit and order priority. Orders with low priority have the lowest average profits and that seems to be correct. However, it is odd that orders with critical priority have less profits on average than orders with medium priority. Surprisingly, orders with no priority specified have the highest average profit.
+
+
+```{r}
+aov1 <- aov(Profit ~ Order.Priority, data = orders)
+anova(aov1)
+```
+Lets run an statistical analysis of variance (ANOVA) to check if order priority is significant factor for profit. 
+
+* Technical Statistical Points: 
+
+
+    * The null hypothesis for our ANOVA is that order priority does not make a difference on profit levels. That is to say, the average profit between all order priority levels is equal to each other.
+
+    * Given the F statistic, we fail to reject the null hypothesis at both the 5% and 10% significance level. We cannot reject the hypothesis that profit levels between all priority levels are equal to each other. 
+
+Our results suggest that: higher order priortity levels do not necessarily result in higher profits.
+
+However, although the statistical ANOVA test says that order priority is not necessarily correlated with higher profits, it may still be false to assume that order priority and profit do not matter. If items are not delivered to clients that have "Critical" priority, then they may not want to partake in business again and the statistical model does not account for levels of customer loyalty. So, it is still very wise to pay attention to client priority levels.
+
+##How has the growth in monthly downloads been across venues and platforms?
+```{r, warning = FALSE}
+#Group monthly downloads by venue, and platform
+venue_month <- downloads %>%
+  group_by(Month, Venue.ID, Platform) %>%
+  summarize(Monthly_Download = sum(Downloads))
+
+#Create functions to rename plot labels
+Venue.Names <- list('CF_CA' = "Carowinds",
+                    'CF_CP' = "Cedar Point",
+                    'CF_CW' = "Canada's Wonderland",
+                    'CF_GA' = "California's Great Adventure",
+                    'CF_KBF' = "Knott's Berry Farm",
+                    'CF_KD' = "Kings Dominion",
+                    'CF_KI' = "Kings Island")
+
+venue_labeller <- function(variable, value){
+  return(Venue.Names[value])
+}
+
+#Plot monthly downloads by venue, and platform
+ggplot(venue_month, aes(y = Monthly_Download, x = Month, col = Platform)) +
+  geom_line(aes(group = Platform)) +
+  facet_wrap(~ Venue.ID, labeller = venue_labeller) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ylab('Monthly Downloads') +
+  ggtitle('Monthly Downloads Across Platforms and Venues')
+```
+
+On average, iOS tends to outperform Android downloads, but that may be due to a higher population of iOS users rather than the quality of the apps on each respective platform. Cedar Point had very high downloads for a period of a couple months. Which leads to the question: Why did Cedar Point have so much more downloads for this extended period of time? 
+
+It could be that Cedar Point Parks are bigger than the others, and thus downloads are higher as a result. Or it could be Cedar Point's marketing tactics and advertising that lead to the spike in downloads. There are a number of possibilities for this reasoning, but more data would be required.
+
+By knowing Cedar Point's tactics for inflating their app downloads, we could help other parks form strategies to increase their app downloads as well.
+
+##A good portion of items are being sold at a profit loss. What is the reasoning for this?
+```{r}
+#Table of total profit, average profit, and 
+#number of orders amongst these categories (not to be confused
+#with quantity purchased)
+(loss_lead_table <- orders %>%
+  group_by(Product.Sub.Category) %>%
+  summarize(Total.profit = sum(Profit), Average.profit = mean(Profit), 
+            Total.orders = n()) %>%
+  arrange(Average.profit) %>%
+  filter(Average.profit < 0))
+
+#Print total lost profit
+sum(loss_lead_table$Total.profit)
+
+
+```
+These item subcategories are all sold at a loss, and are called `loss leaders`. For example, we see tables sell for a big loss, but the same people who buy those tables typically buy more expensive chairs and chairmats. Within these subcategories, our total lost profit is -$12,458.47. Let's examine this further.
+
+##What do people typically tend to buy alongside these items that we sell at a loss?
+```{r}
+#Create filtered data containing only the categories
+#of loss leaders
+loss_leaders <- orders %>%
+  filter(Product.Sub.Category %in% c('Tables', 
+                                     'Rubber Bands', 
+                                     'Scissors, Rulers and Trimmers', 
+                                     'Envelopes', 'Bookcases', 
+                                     'Pens & Art Supplies')) %>%
+  select(Product.Sub.Category, Customer.ID)
+
+#Create filtered dataset to find customer ID's of people who buy
+#loss leading items using left join
+loss_lead_customers <- left_join(loss_leaders, orders, by = 'Customer.ID')
+
+#Number of customers buying loss leading items
+loss_lead_customers%>%
+  distinct(Customer.ID) %>%
+     summarize(Number.unique.customers = n())
+
+#Find the non-loss leading products these customers also purchase
+(what_do_loss_leaders_buy <- loss_lead_customers %>%
+  group_by(Product.Sub.Category.y) %>%
+  summarize(Sum.profit = sum(Profit), 
+            Average.profit = mean(Profit), 
+            Total.orders = n()) %>%
+  filter(!(Product.Sub.Category.y %in% c('Tables', 
+                                         'Rubber Bands', 
+                                         'Scissors, Rulers and Trimmers',
+                                         'Envelopes', 'Bookcases',
+                                         'Pens & Art Supplies')) 
+         & Average.profit > 0) %>%
+  arrange(desc(Sum.profit))) 
+
+#Find total profit 
+sum(what_do_loss_leaders_buy$Sum.profit)
+```
+We see that there are 353 unique customer ID's of people that purchase these loss-leading categories. We profit off of things they buy in categories like telephones, chairs, office furnishings, and other various office materials. Our total profit in these categories from customers who also purchased loss-leading items is $85,563.28. 
+
+So even though we take a loss of -$12,458.47 by selling them tables, envelopes, bookcases, and other loss-leading items at lower than market value, we still come around \$73,000 ahead when they decide to buy other things from us in their same orders. 
+
+
+
+
+
+
+
+
